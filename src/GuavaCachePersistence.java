@@ -4,21 +4,26 @@ import java.nio.file.*;
 import java.util.concurrent.*;
 
 public class GuavaCachePersistence {
-    public static final String FILE_PATH = "cache_data.txt";
+    public static final String FILE_PATH = ".env"; // similar to how Python prefers to keep secrets
 
-    // Create a Guava Cache
-    public static final LoadingCache<Integer, String> cache = CacheBuilder.newBuilder()
+    /** Create a Guava Cache
+     * @implNote Assumes both key and value are strings.
+     */
+    public static final LoadingCache<String, String> cache = CacheBuilder.newBuilder()
             .maximumSize(5)
             .expireAfterWrite(10, TimeUnit.MINUTES)
-            .build(new CacheLoader<Integer, String>() {
+            .build(new CacheLoader<String, String>() {
                 @Override
-                public String load(Integer key) {
-                    return "Value_" + key; // Default value when key is missing
+                public String load(String key) {
+                    return key.toUpperCase();
                 }
             });
 
 
-    // Load cache contents from a text file
+    /** Read key/value string values from a text file in the file system.
+     * @implNote The file is expected to have each key value pair separated by an = (equal) sign.
+     * @throws IOException if the file cannot be found or accessed.
+     */
     public static void loadCacheFromFile() throws IOException {
         Path path = Paths.get(FILE_PATH);
         if (!Files.exists(path)) return;
@@ -28,23 +33,31 @@ public class GuavaCachePersistence {
             while ((line = reader.readLine()) != null) {
                 String[] parts = line.split("=", 2);
                 if (parts.length == 2) {
-                    Integer key = Integer.parseInt(parts[0]);
-                    String value = parts[1];
+                    String key = parts[0].trim().toUpperCase();
+                    String value = parts[1].trim();
                     GuavaCachePersistence.cache.put(key, value);
                 }
             }
         }
         System.out.println("Cache loaded from file.");
     }
-    // Save cache contents to a text file
+
+    /** Save cache contents to a text file
+     * @throws IOException if the file cannot be created or written.
+     */
     public static void saveCacheToFile() throws IOException {
         try (BufferedWriter writer = Files.newBufferedWriter(Paths.get(FILE_PATH))) {
+            // iterate over the key/value pairs in the cache
             for (var entry : cache.asMap().entrySet()) {
                 writer.write(entry.getKey() + "=" + entry.getValue());
                 writer.newLine();
             }
         }
         System.out.println("Cache saved to file.");
+    }
+
+    public static void displayCacheContents(String message) {
+        System.out.format("%s %s%n", message, GuavaCachePersistence.cache.asMap());
     }
 
 }
